@@ -585,7 +585,7 @@ st.markdown("""
   <h1>💊 고혈압 1차 약물 추천 시스템</h1>
   <p>처방 전, AI 분석으로 1차 약물 선택의 근거를 확인하세요</p>
   <div class="badges">
-    <span class="badge">📊 국가 건강조사 데이터 5,974명 기반</span>
+    <span class="badge">📊 NHANES 기반 임상 데이터 분석</span>
     <span class="badge">🤖 AI 학습 기반 분석</span>
     <span class="badge">🔍 AI 처방 판단 근거 분석</span>
     <span class="badge">💬 AI 임상 설명 제공</span>
@@ -766,20 +766,10 @@ with tab1:
 
 # ── Tab 2: 분석 배경 ─────────────────────────────────────
 with tab2:
-    st.markdown("## 🧪 이 모델, 믿을 수 있을까요?")
-
-    # ── 핵심 지표 카드 ────────────────────────────────────
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("학습 데이터", "5,974명", "국가 건강조사 데이터", delta_color="off")
-    m2.metric("모델 정확도", "31.2%", "5가지 약물 중 분류", delta_color="off")
-    m3.metric("분석 항목", "14개", "혈압·신장·전해질 등", delta_color="off")
-    m4.metric("AI 해설", "자동 생성", "환자별 맞춤 설명", delta_color="off")
-
-    st.markdown("---")
-
     # ── 약물별 추천 근거 카드 ─────────────────────────────
     st.markdown("### 💊 약물별 추천 근거가 의학 가이드라인과 일치합니다")
     st.caption("AI가 각 약물을 추천할 때 가장 중요하게 본 항목과, 그 판단이 실제 임상 가이드라인과 맞는지 확인했습니다.")
+
 
     EVIDENCE_SUMMARY = {
         "DIURETIC": {
