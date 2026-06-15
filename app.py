@@ -715,10 +715,81 @@ with tab1:
 
 # ── Tab 2: 분석 배경 ─────────────────────────────────────
 with tab2:
-    st.markdown("## 모델 개요")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
+    st.markdown("## 🧪 이 모델, 믿을 수 있을까요?")
+
+    # ── 핵심 지표 카드 ────────────────────────────────────
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("학습 데이터", "5,974명", "NHANES 2005–2018", delta_color="off")
+    m2.metric("모델 정확도", "31.2%", "5개 약물 중 분류", delta_color="off")
+    m3.metric("분석 피처", "14개", "혈압·신장·전해질 등", delta_color="off")
+    m4.metric("AI 설명", "Groq", "llama-3.3-70b", delta_color="off")
+
+    st.markdown("---")
+
+    # ── 약물별 추천 근거 카드 ─────────────────────────────
+    st.markdown("### 💊 약물별 추천 근거가 의학 가이드라인과 일치합니다")
+    st.caption("AI가 각 약물을 추천할 때 가장 중요하게 본 항목과, 그 판단이 실제 임상 가이드라인과 맞는지 확인했습니다.")
+
+    EVIDENCE_SUMMARY = {
+        "DIURETIC": {
+            "key": "칼륨(K+) 수치",
+            "text": "이뇨제는 체내 칼륨을 함께 배출시켜 저칼륨혈증을 유발할 수 있습니다. "
+                    "AI도 칼륨 수치를 가장 중요한 판단 기준으로 사용했습니다.",
+        },
+        "ACE": {
+            "key": "신장 기능 · 공복혈당",
+            "text": "ACE 억제제는 당뇨로 인한 신장 손상을 막아주는 효과가 있어, "
+                    "신장 기능(eGFR)과 혈당이 핵심 판단 기준이 됩니다.",
+        },
+        "ARB": {
+            "key": "신장 기능 · 공복혈당",
+            "text": "ARB는 ACE 억제제와 같은 신장 보호 효과를 가지면서 마른기침 부작용이 없는 "
+                    "대체 약물로, 같은 기준으로 판단됩니다.",
+        },
+        "BETA": {
+            "key": "혈압(SBP) · 맥압",
+            "text": "베타차단제는 심박출량을 줄여 혈압을 낮추므로, 혈압과 맥압(동맥 경직도)이 "
+                    "핵심 판단 기준이 됩니다.",
+        },
+        "CCB": {
+            "key": "수축기혈압(SBP)",
+            "text": "CCB는 신장 기능과 무관하게 혈관을 직접 이완시켜 혈압을 낮추므로, "
+                    "신장 수치보다 혈압이 핵심 판단 기준이 됩니다.",
+        },
+    }
+    order = ["DIURETIC", "ACE", "ARB", "BETA", "CCB"]
+
+    for row_start in range(0, len(order), 3):
+        cols = st.columns(3)
+        for col, cls in zip(cols, order[row_start:row_start+3]):
+            info = DRUG_INFO[cls]
+            ev   = EVIDENCE_SUMMARY[cls]
+            with col:
+                st.markdown(f"""
+<div class="card" style="border-left:4px solid {info['color']};min-height:190px;">
+  <div style="font-weight:800;color:{info['color']};font-size:15px;margin-bottom:4px;">
+    {info['ko']}
+  </div>
+  <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">
+    핵심 근거: {ev['key']}
+  </div>
+  <div style="font-size:13px;color:#334155;line-height:1.6;">
+    {ev['text']}
+  </div>
+  <div style="margin-top:10px;font-size:12px;color:#059669;font-weight:700;">
+    ✅ 가이드라인 일치 ({info['guide']})
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("")
+    st.success("**5개 약물 클래스 모두 AI의 판단 기준이 실제 의학 가이드라인과 일치합니다.**")
+
+    # ── 더 자세한 내용 (선택적) ───────────────────────────
+    with st.expander("🔧 모델 구조 자세히 보기 (개발자용)", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("""
 | 항목 | 내용 |
 |------|------|
 | 데이터 | NHANES 2005–2018, 7사이클, **5,974명** |
@@ -728,8 +799,8 @@ with tab2:
 | 해석 | SHAP TreeExplainer |
 | LLM | Groq llama-3.3-70b (API) |
 """)
-    with col2:
-        st.markdown("""
+        with c2:
+            st.markdown("""
 | 임상 파생 피처 | 정의 | 기준 |
 |------|------|------|
 | diabetes_flag | 혈당 ≥ 126 | ADA |
@@ -737,18 +808,4 @@ with tab2:
 | pulse_pressure | SBP − DBP | 동맥경직도 |
 | hyperkalemia_flag | K+ ≥ 5.5 | ACE/ARB 금기 |
 | htn_stage | ACC/AHA 2017 | 1~4단계 |
-""")
-    st.markdown("---")
-    st.markdown("""
-## SHAP 분석 결과 — 임상 가이드라인 일치 검증
-
-| 약물 | SHAP 핵심 피처 | 임상 근거 | 일치 |
-|------|---------------|----------|------|
-| **이뇨제** | 칼륨 K+ #1 (0.4614) | 티아지드 → 저칼륨혈증 유발. ALLHAT | ✅ |
-| **ACE 억제제** | eGFR #2 + 혈당 #3 | 당뇨성 신증 1차 치료. KDIGO | ✅ |
-| **ARB** | eGFR #2 + 혈당 #3 | ACE와 동일 적응증. 마른기침 없는 대체 | ✅ |
-| **베타차단제** | SBP #1 + 맥압 #2 | 교감 항진 → 심박출량 감소. ACC/AHA | ✅ |
-| **CCB** | SBP #1 (eGFR 無) | 혈관 이완. 신장 기능 무관 | ✅ |
-
-> **5개 약물 클래스 모두 임상 가이드라인과 일치**
 """)
