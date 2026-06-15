@@ -277,24 +277,43 @@ def build_fv(age, gv, sbp, dbp, bmi, cr, k, na, glu):
             1.0 if k>=5.5   else 0.0,
             1 if sbp<130 else 2 if sbp<140 else 3 if sbp<160 else 4]
 
+
+# ──────────────────────────────────────────────────────────
+#  텍스트 정제 (다른 언어 문자/발음 구별 기호 제거)
+#  허용: 한글(완성형 + 자모) · ASCII(영문/숫자/기본 문장부호) · 공백
+#  → 베트남어/중국어/일본어/태국어 등 한글이 아닌 비-ASCII 문자는 모두 제거
+# ──────────────────────────────────────────────────────────
+FOREIGN_CHAR_RE = re.compile(
+    r'[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\x00-\x7F\s]'
+)
+
+def has_foreign_chars(text):
+    """한글/ASCII/공백 외 문자가 섞여 있는지 검사"""
+    return bool(FOREIGN_CHAR_RE.search(text))
+
 def sanitize_text(text):
-    text = re.sub(r'[一-鿿]', '', text)
-    text = re.sub(r'[㐀-䶿]', '', text)
-    text = re.sub(r'[豈-﫿]', '', text)
-    text = re.sub(r'[぀-ゟ]', '', text)
-    text = re.sub(r'[゠-ヿ]', '', text)
-    text = re.sub(r'[฀-๿]', '', text)
-    text = re.sub(r'[؀-ۿ]', '', text)
-    text = re.sub(r'[֐-׿]', '', text)
-    return text.strip()
+    """허용되지 않는 문자를 제거하고 공백을 정리"""
+    cleaned = FOREIGN_CHAR_RE.sub('', text)
+    cleaned = re.sub(r' {2,}', ' ', cleaned)
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    return cleaned.strip()
+
 
 def call_groq(fv, pred_cls, proba_val):
     api_key = st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY", ""))
     if not api_key:
         return None
     info = DRUG_INFO[pred_cls]
-    prompt = (
-        f"당신은 고혈압 전문 임상약사입니다. 한국어로만 3문장 작성하세요. "
+
+    system_prompt = (
+        "당신은 고혈압 전문 임상약사입니다. "
+        "응답은 반드시 한국어(한글)로만 작성하세요. "
+        "의학 전문용어의 영어 표기(예: ARB, ACE, eGFR, CKD, mmHg, mL/min)는 "
+        "허용하지만, 한국어 단어 안에 베트남어, 중국어, 일본어, 태국어 등 "
+        "다른 언어의 문자나 발음 구별 기호가 절대 섞여서는 안 됩니다."
+    )
+    user_prompt = (
+        f"한국어로만 3문장 작성하세요. "
         f"영어는 약물명·단위·약어(ARB, ACE, eGFR, CKD, mmHg, mL/min)만 허용합니다.\n\n"
         f"환자: {fv[0]:.0f}세, 혈압 {fv[1]:.0f}/{fv[2]:.0f} mmHg, "
         f"eGFR {fv[8]:.1f} mL/min, 공복혈당 {fv[7]:.0f} mg/dL, "
@@ -303,22 +322,41 @@ def call_groq(fv, pred_cls, proba_val):
         f"약물 설명: {info['simple']}\n\n"
         f"임상 설명 3문장:"
     )
-    try:
+
+    def _request(temperature):
         resp = requests.post(
             GROQ_URL,
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": GROQ_MODEL,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": temperature,
                 "max_tokens": 512,
             },
             timeout=30,
         )
         if resp.status_code == 200:
-            return sanitize_text(resp.json()["choices"][0]["message"]["content"].strip())
+            return resp.json()["choices"][0]["message"]["content"].strip()
         return None
+
+    try:
+        raw = _request(0.4)
+        if raw is None:
+            return None
+
+        # 다른 언어 문자가 섞여 있으면 1회 재시도
+        if has_foreign_chars(raw):
+            retry = _request(0.3)
+            if retry is not None and not has_foreign_chars(retry):
+                raw = retry
+
+        return sanitize_text(raw)
     except Exception:
         return None
+
 
 def build_fallback(fv, pred_cls, proba_val):
     info = DRUG_INFO[pred_cls]
@@ -404,6 +442,8 @@ def make_shap_chart(sv, pred_cls):
 
 # ══════════════════════════════════════════════════════════
 #  임상 근거 요약
+#  → 각 항목을 "제목" + 줄바꿈 + "내용" 형식으로 구성
+#    (마크다운에서 줄바꿈이 적용되도록 제목 끝에 공백 2개 추가)
 # ══════════════════════════════════════════════════════════
 def build_evidence(cls, fv, sv):
     info = DRUG_INFO[cls]
@@ -434,11 +474,21 @@ def build_evidence(cls, fv, sv):
         ],
     }
     top3 = np.argsort(np.abs(sv))[::-1][:3]
+
+    # "제목" 다음 줄에 "내용"이 오도록, 제목 끝에 공백 2개(마크다운 강제 줄바꿈) + 줄바꿈 추가
     lines = [
-        f"**[{cls} — {info['ko']}]**",
-        f"**작용기전:** {info['mechanism']}",
-        f"**쉬운 설명:** {info['simple']}",
-        f"**가이드라인:** {info['guide']}",
+        f"#### {cls} — {info['ko']}",
+        "",
+        "**작용기전**  ",
+        info["mechanism"],
+        "",
+        "**쉬운 설명**  ",
+        info["simple"],
+        "",
+        "**가이드라인**  ",
+        info["guide"],
+        "",
+        "---",
         "",
         "**환자 수치 해석**",
     ]
@@ -448,6 +498,8 @@ def build_evidence(cls, fv, sv):
         lines.append(f"- **{FEATURE_KR[feat]}** (값={val:.2f}, SHAP={shap_v:+.4f} → {d})")
         lines.append(f"  → {desc}")
     lines += [
+        "",
+        "---",
         "",
         "**AI가 가장 중요하게 본 항목 Top 3**",
     ]
@@ -489,7 +541,8 @@ with tab1:
     with left:
         st.markdown('<div class="sec-label">환자 정보 입력</div>', unsafe_allow_html=True)
 
-        age    = st.slider("나이 (세)", 18, 90, 60, 1)
+        # 나이: 슬라이더 → 숫자 직접 입력
+        age    = st.number_input("나이 (세)", min_value=18, max_value=90, value=60, step=1)
         gender = st.radio("성별", ["남성", "여성"], horizontal=True, label_visibility="collapsed")
 
         st.markdown('<div class="group-hd">혈압 (mmHg) / BMI</div>', unsafe_allow_html=True)
