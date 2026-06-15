@@ -564,28 +564,37 @@ def build_evidence(cls, fv, sv):
     info = DRUG_INFO[cls]
     ev_map = {
         "ACE": [
-            ("eGFR", fv[8], ("신장 기능 저하(eGFR<60). ACE 억제제는 사구체 내압을 낮춰 신장 보호 (KDIGO 2022)"
-                             if fv[8]<60 else "신장 기능 정상. 당뇨 동반 시 신장 보호 효과로 1차 선택.")),
-            ("glucose", fv[7], ("혈당 126 이상 → 당뇨 의심. 당뇨성 신증 1차 치료제 (ADA 2023)"
-                                if fv[7]>=126 else "혈당 정상 범위.")),
+            ("eGFR", (f"신장 기능(eGFR)이 {fv[8]:.1f} mL/min으로 60 미만이라 신장 기능이 저하된 상태입니다. "
+                      f"ACE 억제제는 신장 내 압력을 낮춰 신장을 보호하는 효과가 있어 우선 고려됩니다 (KDIGO 2022).")
+                     if fv[8]<60 else
+                     (f"신장 기능(eGFR)은 {fv[8]:.1f} mL/min으로 정상 범위입니다. "
+                      f"당뇨가 동반될 경우 ACE 억제제가 신장 보호 효과로 1차 선택될 수 있습니다.")),
+            ("glucose", (f"공복혈당이 {fv[7]:.0f} mg/dL로 126 이상이라 당뇨가 의심됩니다. "
+                         f"당뇨로 인한 신장 손상을 예방하는 ACE 억제제가 1차 치료제로 권고됩니다 (ADA 2023).")
+                        if fv[7]>=126 else
+                        f"공복혈당은 {fv[7]:.0f} mg/dL로 정상 범위입니다."),
         ],
         "ARB": [
-            ("eGFR", fv[8], ("신장 기능 저하. ARB는 ACE 억제제와 동일한 신장 보호 효과, 마른기침 없음."
-                             if fv[8]<60 else "신장 기능 정상. 당뇨 동반 고혈압에 ACE와 동등 권고.")),
-            ("glucose", fv[7], "당뇨 동반 고혈압에 ACE/ARB 동등 권고 (ESC/ESH 2023)"),
+            ("eGFR", (f"신장 기능(eGFR)이 {fv[8]:.1f} mL/min으로 60 미만이라 신장 기능이 저하된 상태입니다. "
+                      f"ARB는 ACE 억제제와 같은 신장 보호 효과를 가지면서 마른기침 부작용이 없습니다.")
+                     if fv[8]<60 else
+                     (f"신장 기능(eGFR)은 {fv[8]:.1f} mL/min으로 정상 범위입니다. "
+                      f"당뇨를 동반한 고혈압에서는 ARB가 ACE 억제제와 동등하게 권고됩니다.")),
+            ("glucose", f"공복혈당은 {fv[7]:.0f} mg/dL입니다. 당뇨를 동반한 고혈압에는 ACE 억제제와 ARB가 동등하게 권고됩니다 (ESC/ESH 2023)."),
         ],
         "BETA": [
-            ("sbp", fv[1], f"수축기 혈압 {fv[1]:.0f} mmHg — β1 차단으로 심박출량 감소 → 혈압 강하"),
-            ("pulse_pressure", fv[11], f"맥압 {fv[11]:.0f} mmHg — 동맥 경직도 지표. 베타차단제 반응 예측"),
+            ("sbp", f"수축기 혈압이 {fv[1]:.0f} mmHg로 높게 측정되었습니다. 베타차단제는 심장이 뛰는 힘과 속도를 줄여 혈압을 낮춥니다."),
+            ("pulse_pressure", f"맥압(수축기-이완기 혈압 차이)이 {fv[11]:.0f} mmHg입니다. 이 값이 클수록 혈관이 뻣뻣하다는 의미이며, 베타차단제 반응을 예측하는 데 참고됩니다."),
         ],
         "CCB": [
-            ("sbp", fv[1], f"수축기 혈압 {fv[1]:.0f} mmHg — 혈관 이완으로 직접 감소. eGFR 무관 사용 가능"),
-            ("eGFR", fv[8], f"eGFR {fv[8]:.1f} — CCB는 신장 배설 의존도 낮아 CKD에도 안전"),
+            ("sbp", f"수축기 혈압이 {fv[1]:.0f} mmHg로 높게 측정되었습니다. CCB는 혈관을 직접 넓혀주어 혈압을 낮춥니다."),
+            ("eGFR", f"신장 기능(eGFR)은 {fv[8]:.1f} mL/min입니다. CCB는 신장으로 배출되는 비율이 낮아, 신장 기능과 관계없이 안전하게 사용할 수 있습니다."),
         ],
         "DIURETIC": [
-            ("potassium", fv[5], (f"칼륨(K+) {fv[5]:.1f} mEq/L — ⚠️ 고칼륨혈증. 이뇨제 투여 시 주의 요망."
-                                  if fv[5]>=5.5 else f"칼륨 {fv[5]:.1f} mEq/L — 정상. 이뇨제 투여 중 저칼륨혈증 모니터링 필요.")),
-            ("sodium", fv[6], f"나트륨 {fv[6]:.1f} mEq/L — 이뇨제는 나트륨 배출로 혈압 강하. (ALLHAT)"),
+            ("potassium", (f"칼륨 수치가 {fv[5]:.1f} mEq/L로 다소 높은 편입니다. 이뇨제는 칼륨을 더 떨어뜨릴 수 있어 사용 중 주의가 필요합니다."
+                           if fv[5]>=5.5 else
+                           f"칼륨 수치는 {fv[5]:.1f} mEq/L로 정상입니다. 다만 이뇨제 사용 중에는 칼륨이 낮아질 수 있어 정기적인 확인이 필요합니다.")),
+            ("sodium", f"나트륨 수치는 {fv[6]:.1f} mEq/L입니다. 이뇨제는 나트륨과 수분을 소변으로 더 많이 배출시켜 혈압을 낮춥니다 (ALLHAT 연구 근거)."),
         ],
     }
     # "제목" 다음 줄에 "내용"이 오도록, 제목 끝에 공백 2개(마크다운 강제 줄바꿈) + 줄바꿈 추가
@@ -603,13 +612,10 @@ def build_evidence(cls, fv, sv):
         "",
         "---",
         "",
-        "**환자 수치 해석**",
+        "**이 환자의 수치로 보는 추천 이유**",
     ]
-    for feat, val, desc in ev_map.get(cls, []):
-        shap_v = sv[FEATURES.index(feat)]
-        d = "▲ 추천 강화 요인" if shap_v>0 else "▼ 추천 억제 요인"
-        lines.append(f"- **{FEATURE_KR[feat]}** (값={val:.2f}, 영향도={shap_v:+.4f} → {d})")
-        lines.append(f"  → {desc}")
+    for feat, desc in ev_map.get(cls, []):
+        lines.append(f"- **{FEATURE_KR[feat]}**: {desc}")
     return "\n".join(lines)
 
 
