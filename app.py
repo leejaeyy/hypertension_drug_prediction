@@ -2,6 +2,12 @@
 고혈압 1차 약물 추천 시스템 — Streamlit
 NHANES 2005-2018 · XGBoost + SHAP + Ollama
 """
+import os
+import re
+import warnings
+warnings.filterwarnings("ignore")
+os.environ["MPLBACKEND"] = "Agg"
+
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -12,10 +18,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import requests
-import re
-import os
-import warnings
-warnings.filterwarnings("ignore")
 
 # ── 페이지 설정 ──────────────────────────────────────────
 st.set_page_config(
@@ -26,7 +28,7 @@ st.set_page_config(
 )
 
 # ── 한글 폰트 ────────────────────────────────────────────
-for font in ["Malgun Gothic", "NanumGothic", "DejaVu Sans"]:
+for font in ["NanumGothic", "Malgun Gothic", "DejaVu Sans"]:
     try:
         plt.rcParams["font.family"] = font
         break

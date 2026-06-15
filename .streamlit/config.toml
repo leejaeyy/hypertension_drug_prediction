@@ -1,0 +1,15 @@
+[theme]
+# 메인 색상 (버튼, 슬라이더, 링크 등)
+primaryColor = "#2563eb"
+
+# 배경색
+backgroundColor = "#f8fafc"
+
+# 사이드바/카드 배경
+secondaryBackgroundColor = "#ffffff"
+
+# 글자색
+textColor = "#1e293b"
+
+# 폰트 (sans serif / serif / monospace)
+font = "sans serif"
