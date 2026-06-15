@@ -194,6 +194,34 @@ FEATURE_KR = {
     "pulse_pressure":"맥압","hyperkalemia_flag":"고칼륨혈증",
     "htn_stage":"고혈압단계",
 }
+
+# Top3 피처용 아이콘
+FEATURE_ICON = {
+    "age":"🎂","sbp":"💓","dbp":"💗","bmi":"⚖️",
+    "creatinine":"🩸","potassium":"🧪","sodium":"🧂",
+    "glucose":"🍬","eGFR":"🫘","diabetes_flag":"🍬",
+    "ckd_flag":"🫘","pulse_pressure":"📈",
+    "hyperkalemia_flag":"⚠️","htn_stage":"📊",
+}
+
+# Top3 피처용 — "왜 중요하게 봤는지" 일반 설명
+FEATURE_REASON = {
+    "age":"나이는 약물 대사 속도와 신장 기능(eGFR) 계산의 기준이 되어, 약물 선택의 출발점이 됩니다.",
+    "sbp":"수축기 혈압은 고혈압 단계를 결정하는 핵심 지표로, 약물의 종류와 강도를 정하는 데 직접적인 영향을 줍니다.",
+    "dbp":"이완기 혈압은 혈관 저항 상태를 반영하여, 베타차단제·CCB 같은 약물의 적합성을 판단하는 데 사용됩니다.",
+    "bmi":"BMI는 대사 건강 상태를 나타내며, 비만은 인슐린 저항성 및 약물 반응성과 관련이 있습니다.",
+    "creatinine":"크레아티닌은 신장 기능(eGFR)을 계산하는 핵심 수치로, ACE·ARB 사용 가능 여부를 결정하는 데 중요합니다.",
+    "potassium":"칼륨 수치는 ACE 억제제·ARB·이뇨제 사용 시 고칼륨혈증 또는 저칼륨혈증 위험을 판단하는 핵심 안전 지표입니다.",
+    "sodium":"나트륨 수치는 체내 수분-전해질 균형을 반영하여, 이뇨제 처방 시 중요한 참고 지표로 사용됩니다.",
+    "glucose":"공복혈당은 당뇨 동반 여부를 판단해, 신장 보호 효과가 있는 ACE·ARB 계열 약물의 우선순위를 정하는 데 사용됩니다.",
+    "eGFR":"eGFR은 신장 기능을 직접 나타내는 지표로, 신장 기능에 따라 사용 가능한 약물 종류가 달라집니다.",
+    "diabetes_flag":"당뇨 동반 여부는 신장 보호 효과가 있는 ACE·ARB 계열 약물을 우선 고려하게 만드는 요인입니다.",
+    "ckd_flag":"만성 신장 질환 여부는 약물의 신장 배설 의존도를 고려해 CCB 등 더 안전한 약물을 선택하는 기준이 됩니다.",
+    "pulse_pressure":"맥압(수축기-이완기 혈압 차)은 동맥 경직도를 나타내며, 베타차단제의 반응성을 예측하는 데 활용됩니다.",
+    "hyperkalemia_flag":"고칼륨혈증 여부는 ACE 억제제·ARB·이뇨제 사용 시 금기 여부를 판단하는 안전성 지표입니다.",
+    "htn_stage":"고혈압 단계는 ACC/AHA 기준에 따라 1차 약물 치료의 강도를 결정하는 기준이 됩니다.",
+}
+
 DRUG_INFO = {
     "ACE": {
         "ko":"ACE 억제제", "color":"#2563eb", "bg":"#eff6ff", "border":"#bfdbfe",
@@ -440,35 +468,8 @@ def make_shap_chart(sv, pred_cls):
     return fig
 
 
-def make_top3_chart(sv, top3_idx, pred_cls):
-    """Top3 영향 피처를 강조한 미니 가로 바 차트 (1위가 맨 위)"""
-    color_pos = DRUG_INFO[pred_cls]["color"]
-    color_neg = "#94a3b8"
-
-    idx    = list(top3_idx)[::-1]          # barh는 아래→위 순서이므로 1위가 맨 위에 오도록 반전
-    vals   = sv[idx]
-    labels = [f"{FEATURE_KR[FEATURES[i]]}" for i in idx]
-    colors = [color_pos if v>=0 else color_neg for v in vals]
-
-    fig, ax = plt.subplots(figsize=(8, 2.4))
-    fig.patch.set_facecolor("#ffffff")
-    ax.set_facecolor("#f8fafc")
-
-    bars = ax.barh(labels, vals, color=colors, edgecolor="white", height=0.5, linewidth=1.2)
-    for bar, v in zip(bars, vals):
-        ax.text(v+(0.004 if v>=0 else -0.004), bar.get_y()+bar.get_height()/2,
-                f"{v:+.4f}", va="center", ha="left" if v>=0 else "right",
-                fontsize=10.5, fontweight="bold", color="#1e293b")
-
-    ax.axvline(0, color="#475569", linewidth=1.0)
-    ax.set_title("Top 3 영향 피처 (SHAP)", fontsize=12, fontweight="bold", color="#1e293b", pad=10)
-    ax.tick_params(colors="#475569", labelsize=11)
-    ax.spines[["top","right"]].set_visible(False)
-    ax.spines[["left","bottom"]].set_color("#e2e8f0")
-    ax.set_axisbelow(True)
-    ax.xaxis.grid(True, color="#e2e8f0", linewidth=0.8)
-    plt.tight_layout(pad=1.4)
-    return fig
+# ══════════════════════════════════════════════════════════
+#  임상 근거 요약
 #  → 각 항목을 "제목" + 줄바꿈 + "내용" 형식으로 구성
 #    (마크다운에서 줄바꿈이 적용되도록 제목 끝에 공백 2개 추가)
 # ══════════════════════════════════════════════════════════
@@ -564,9 +565,9 @@ with tab1:
         st.markdown('<div class="group-hd">혈압 (mmHg) / BMI</div>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
         sbp = c1.number_input("SBP", value=145, min_value=80, max_value=250, label_visibility="visible",
-                               help="SBP (수축기 혈압, Systolic Blood Pressure) — 심장이 수축하며 혈액을 내보낼 때의 압력. '최고혈압'")
+                               help="SBP (수축기혈압) — 심장이 수축할 때의 혈압, '최고혈압'")
         dbp = c2.number_input("DBP", value=88,  min_value=40, max_value=150, label_visibility="visible",
-                               help="DBP (이완기 혈압, Diastolic Blood Pressure) — 심장이 이완되어 혈액을 받아들일 때의 압력. '최저혈압'")
+                               help="DBP (이완기혈압) — 심장이 이완될 때의 혈압, '최저혈압'")
         bmi = c3.number_input("BMI", value=27.5, min_value=10.0, max_value=60.0, step=0.1, format="%.1f")
 
         st.markdown('<div class="group-hd">혈액검사</div>', unsafe_allow_html=True)
@@ -676,16 +677,17 @@ with tab1:
                 st.markdown("**AI가 가장 중요하게 본 항목 Top 3**")
 
                 top3_idx = np.argsort(np.abs(sv))[::-1][:3]
-                top3_df = pd.DataFrame({
-                    "순위":    [f"{i}위" for i in range(1, 4)],
-                    "피처":    [FEATURE_KR[FEATURES[i]] for i in top3_idx],
-                    "값":      [round(float(fv[i]), 2) for i in top3_idx],
-                    "|SHAP|":  [round(float(abs(sv[i])), 4) for i in top3_idx],
-                    "영향 방향": ["▲ 예측 강화" if sv[i] > 0 else "▼ 예측 억제" for i in top3_idx],
-                })
-                st.dataframe(top3_df, use_container_width=True, hide_index=True)
+                max_abs  = max(abs(sv[i]) for i in top3_idx) or 1.0
 
-                st.pyplot(make_top3_chart(sv, top3_idx, pred_cls), use_container_width=True)
+                for rank, i in enumerate(top3_idx, 1):
+                    feat = FEATURES[i]
+                    icon = FEATURE_ICON.get(feat, "🔹")
+                    reason = FEATURE_REASON.get(feat, "")
+                    rel = abs(sv[i]) / max_abs
+
+                    st.markdown(f"**{rank}위. {icon} {FEATURE_KR[feat]}**")
+                    st.progress(min(max(rel, 0.0), 1.0))
+                    st.caption(reason)
 
             # ── 피처 테이블 ───────────────────────────────
             with st.expander("피처 전체 값 및 SHAP 기여도", expanded=False):
