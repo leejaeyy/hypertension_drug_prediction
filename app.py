@@ -172,7 +172,7 @@ textarea {
 hr { border-color: #f1f5f9; margin: 14px 0; }
 
 /* Streamlit 기본 여백 줄이기 */
-.block-container { padding-top: 1.5rem !important; max-width: 1600px !important; }
+.block-container { padding-top: 1.5rem !important; max-width: 1400px !important; }
 #MainMenu, header, footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
@@ -500,7 +500,7 @@ def make_prob_chart(proba, classes):
     labels = [DRUG_INFO[c]["ko"] for c in classes]
     vals   = proba * 100
 
-    fig, ax = plt.subplots(figsize=(7, 4.4))
+    fig, ax = plt.subplots(figsize=(10, 3.6))
     fig.patch.set_facecolor("#ffffff")
     ax.set_facecolor("#f8fafc")
 
@@ -528,7 +528,7 @@ def make_shap_chart(sv, pred_cls):
     labels = [FEATURE_KR[FEATURES[i]] for i in idx]
     colors = [color_pos if v>=0 else color_neg for v in vals]
 
-    fig, ax = plt.subplots(figsize=(7, 6.5))
+    fig, ax = plt.subplots(figsize=(10, 5.5))
     fig.patch.set_facecolor("#ffffff")
     ax.set_facecolor("#f8fafc")
 
@@ -639,7 +639,7 @@ if not MODEL_OK:
 tab1, tab2, tab3 = st.tabs(["💊  약물 추천", "📊  분석 배경 및 판단 근거", "💬  약물 물어보기"])
 
 with tab1:
-    left, right = st.columns([1, 3], gap="large")
+    left, right = st.columns([1, 2], gap="large")
 
     # ── 좌측: 입력 ───────────────────────────────────────
     with left:
@@ -744,14 +744,13 @@ with tab1:
 </div>
 """, unsafe_allow_html=True)
 
-            # ── 추천 적합도 / 판단 근거 차트 (좌우 배치) ────
-            chart_l, chart_r = st.columns(2, gap="medium")
-            with chart_l:
-                st.markdown("#### 📊 약물별 추천 적합도")
-                st.pyplot(make_prob_chart(proba, le.classes_), use_container_width=True)
-            with chart_r:
-                st.markdown("#### 🔍 처방 판단에 영향을 준 요인")
-                st.pyplot(make_shap_chart(sv, pred_cls), use_container_width=True)
+            # ── 추천 적합도 차트 ───────────────────────────
+            st.markdown("#### 📊 약물별 추천 적합도")
+            st.pyplot(make_prob_chart(proba, le.classes_), use_container_width=True)
+
+            # ── 판단 근거 차트 ────────────────────────────
+            st.markdown("#### 🔍 처방 판단에 영향을 준 요인")
+            st.pyplot(make_shap_chart(sv, pred_cls), use_container_width=True)
 
             # ── AI 임상 설명 ─────────────────────────────
             st.markdown("#### 🤖 AI 임상 설명")
