@@ -456,6 +456,42 @@ def build_fallback(fv, pred_cls, proba_val):
     return f"{s1}\n\n{s2}\n\n{s3}"
 
 
+def build_reason(cls, fv):
+    """결과 카드용 — 환자 수치를 반영한 1~2문장 추천 이유"""
+    sbp, egfr, pp, k, na, glu = fv[1], fv[8], fv[11], fv[5], fv[6], fv[7]
+    ckd = fv[10] >= 1
+    dm  = fv[9]  >= 1
+
+    if cls == "ACE":
+        kidney = f"신장 기능(eGFR {egfr:.1f})이 저하되어 있고" if ckd else f"신장 기능(eGFR {egfr:.1f})은 정상 범위이고"
+        dm_txt = "당뇨가 동반되어" if dm else "혈당은 정상이나"
+        return (f"이 환자는 {kidney} {dm_txt}, 신장을 보호하는 효과가 있는 ACE 억제제가 "
+                f"1차 약물로 적합한 것으로 분석되었습니다.")
+
+    if cls == "ARB":
+        if ckd:
+            kidney = f"신장 기능(eGFR {egfr:.1f})이 저하되어 있어"
+        else:
+            kidney = f"신장 기능(eGFR {egfr:.1f})은 정상이지만 당뇨 동반 혈압 관리 차원에서"
+        return (f"이 환자는 {kidney}, ACE 억제제와 동일한 신장 보호 효과를 가지면서 "
+                f"마른기침 부작용이 없는 ARB가 적합한 것으로 분석되었습니다.")
+
+    if cls == "BETA":
+        return (f"이 환자는 수축기 혈압이 {sbp:.0f} mmHg, 맥압이 {pp:.0f} mmHg로 동맥 경직도가 "
+                f"높게 나타나, 심박출량을 줄여 혈압을 낮추는 베타차단제가 적합한 것으로 분석되었습니다.")
+
+    if cls == "CCB":
+        return (f"이 환자는 수축기 혈압이 {sbp:.0f} mmHg로 높지만, 신장 기능과 무관하게 혈관을 "
+                f"직접 이완시켜 혈압을 낮추는 CCB가 안전하고 적합한 것으로 분석되었습니다.")
+
+    if cls == "DIURETIC":
+        k_txt = "칼륨 수치는 정상 범위이고" if k < 5.0 else "칼륨 수치 모니터링이 필요한 상태이며"
+        return (f"이 환자는 나트륨 {na:.1f} mEq/L, {k_txt} 혈압이 높아, 나트륨·수분 배출을 통해 "
+                f"혈압을 낮추는 이뇨제가 적합한 것으로 분석되었습니다.")
+
+    return ""
+
+
 # ══════════════════════════════════════════════════════════
 #  차트
 # ══════════════════════════════════════════════════════════
@@ -672,6 +708,11 @@ with tab1:
   <div style="font-size:32px;font-weight:900;color:#1e293b;margin-bottom:12px;">
     {proba_v*100:.1f}%
     <span style="font-size:14px;font-weight:400;color:#64748b;"> 추천 적합도 (5가지 약물 중 가장 높음)</span>
+  </div>
+  <div style="background:white;border-radius:10px;padding:12px 14px;margin-bottom:12px;
+              font-size:13.5px;color:#1e293b;line-height:1.6;border:1px solid {info['border']};">
+    <b style="color:{info['color']};">📝 추천 이유</b><br>
+    {build_reason(pred_cls, fv)}
   </div>
   <hr style="border-color:{info['border']};margin:10px 0;">
   <table style="font-size:13.5px;width:100%;border-spacing:0;">
