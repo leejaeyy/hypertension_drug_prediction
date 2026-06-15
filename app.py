@@ -731,7 +731,8 @@ with tab1:
     </tr>
     <tr>
       <td style="color:#64748b;padding:3px 0;">만성 신장 질환</td>
-      <td style="font-weight:600;color:#1e293b;">{"있음" if fv[10] else "없음"} &nbsp;|&nbsp; 칼륨(K+): {fv[5]:.1f} mEq/L</td>
+      <td style="font-weight:600;color:#1e293b;">{"있음" if fv[10] else "없음"} &nbsp;|&nbsp; 칼륨(K+): {fv[5]:.1f} mEq/L
+        <span style="font-size:11px;color:#94a3b8;"> (eGFR 60 미만 기준)</span></td>
     </tr>
   </table>
   <hr style="border-color:{info['border']};margin:10px 0;">
