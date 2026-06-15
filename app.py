@@ -440,8 +440,35 @@ def make_shap_chart(sv, pred_cls):
     return fig
 
 
-# ══════════════════════════════════════════════════════════
-#  임상 근거 요약
+def make_top3_chart(sv, top3_idx, pred_cls):
+    """Top3 영향 피처를 강조한 미니 가로 바 차트 (1위가 맨 위)"""
+    color_pos = DRUG_INFO[pred_cls]["color"]
+    color_neg = "#94a3b8"
+
+    idx    = list(top3_idx)[::-1]          # barh는 아래→위 순서이므로 1위가 맨 위에 오도록 반전
+    vals   = sv[idx]
+    labels = [f"{FEATURE_KR[FEATURES[i]]}" for i in idx]
+    colors = [color_pos if v>=0 else color_neg for v in vals]
+
+    fig, ax = plt.subplots(figsize=(8, 2.4))
+    fig.patch.set_facecolor("#ffffff")
+    ax.set_facecolor("#f8fafc")
+
+    bars = ax.barh(labels, vals, color=colors, edgecolor="white", height=0.5, linewidth=1.2)
+    for bar, v in zip(bars, vals):
+        ax.text(v+(0.004 if v>=0 else -0.004), bar.get_y()+bar.get_height()/2,
+                f"{v:+.4f}", va="center", ha="left" if v>=0 else "right",
+                fontsize=10.5, fontweight="bold", color="#1e293b")
+
+    ax.axvline(0, color="#475569", linewidth=1.0)
+    ax.set_title("Top 3 영향 피처 (SHAP)", fontsize=12, fontweight="bold", color="#1e293b", pad=10)
+    ax.tick_params(colors="#475569", labelsize=11)
+    ax.spines[["top","right"]].set_visible(False)
+    ax.spines[["left","bottom"]].set_color("#e2e8f0")
+    ax.set_axisbelow(True)
+    ax.xaxis.grid(True, color="#e2e8f0", linewidth=0.8)
+    plt.tight_layout(pad=1.4)
+    return fig
 #  → 각 항목을 "제목" + 줄바꿈 + "내용" 형식으로 구성
 #    (마크다운에서 줄바꿈이 적용되도록 제목 끝에 공백 2개 추가)
 # ══════════════════════════════════════════════════════════
@@ -473,8 +500,6 @@ def build_evidence(cls, fv, sv):
             ("sodium", fv[6], f"나트륨 {fv[6]:.1f} mEq/L — 이뇨제는 나트륨 배출로 혈압 강하. (ALLHAT)"),
         ],
     }
-    top3 = np.argsort(np.abs(sv))[::-1][:3]
-
     # "제목" 다음 줄에 "내용"이 오도록, 제목 끝에 공백 2개(마크다운 강제 줄바꿈) + 줄바꿈 추가
     lines = [
         f"#### {cls} — {info['ko']}",
@@ -497,15 +522,6 @@ def build_evidence(cls, fv, sv):
         d = "▲ 예측 강화" if shap_v>0 else "▼ 예측 억제"
         lines.append(f"- **{FEATURE_KR[feat]}** (값={val:.2f}, SHAP={shap_v:+.4f} → {d})")
         lines.append(f"  → {desc}")
-    lines += [
-        "",
-        "---",
-        "",
-        "**AI가 가장 중요하게 본 항목 Top 3**",
-    ]
-    for i, idx in enumerate(top3, 1):
-        d = "예측 강화" if sv[idx]>0 else "예측 억제"
-        lines.append(f"{i}위. {FEATURE_KR[FEATURES[idx]]}  (|SHAP|={abs(sv[idx]):.4f}, {d})")
     return "\n".join(lines)
 
 
@@ -532,7 +548,7 @@ if not MODEL_OK:
 # ══════════════════════════════════════════════════════════
 #  탭
 # ══════════════════════════════════════════════════════════
-tab1, tab2, tab3 = st.tabs(["🔍  약물 예측", "📊  분석 배경 및 SHAP 패턴", "⚙️  Groq 설정"])
+tab1, tab2 = st.tabs(["🔍  약물 예측", "📊  분석 배경 및 SHAP 패턴"])
 
 with tab1:
     left, right = st.columns([1, 2], gap="large")
@@ -547,8 +563,10 @@ with tab1:
 
         st.markdown('<div class="group-hd">혈압 (mmHg) / BMI</div>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
-        sbp = c1.number_input("SBP", value=145, min_value=80, max_value=250, label_visibility="visible")
-        dbp = c2.number_input("DBP", value=88,  min_value=40, max_value=150, label_visibility="visible")
+        sbp = c1.number_input("SBP", value=145, min_value=80, max_value=250, label_visibility="visible",
+                               help="SBP (수축기 혈압, Systolic Blood Pressure) — 심장이 수축하며 혈액을 내보낼 때의 압력. '최고혈압'")
+        dbp = c2.number_input("DBP", value=88,  min_value=40, max_value=150, label_visibility="visible",
+                               help="DBP (이완기 혈압, Diastolic Blood Pressure) — 심장이 이완되어 혈액을 받아들일 때의 압력. '최저혈압'")
         bmi = c3.number_input("BMI", value=27.5, min_value=10.0, max_value=60.0, step=0.1, format="%.1f")
 
         st.markdown('<div class="group-hd">혈액검사</div>', unsafe_allow_html=True)
@@ -654,6 +672,21 @@ with tab1:
             with st.expander("📋 임상 근거 요약 (SHAP + 가이드라인)", expanded=False):
                 st.markdown(build_evidence(pred_cls, fv, sv))
 
+                st.markdown("---")
+                st.markdown("**AI가 가장 중요하게 본 항목 Top 3**")
+
+                top3_idx = np.argsort(np.abs(sv))[::-1][:3]
+                top3_df = pd.DataFrame({
+                    "순위":    [f"{i}위" for i in range(1, 4)],
+                    "피처":    [FEATURE_KR[FEATURES[i]] for i in top3_idx],
+                    "값":      [round(float(fv[i]), 2) for i in top3_idx],
+                    "|SHAP|":  [round(float(abs(sv[i])), 4) for i in top3_idx],
+                    "영향 방향": ["▲ 예측 강화" if sv[i] > 0 else "▼ 예측 억제" for i in top3_idx],
+                })
+                st.dataframe(top3_df, use_container_width=True, hide_index=True)
+
+                st.pyplot(make_top3_chart(sv, top3_idx, pred_cls), use_container_width=True)
+
             # ── 피처 테이블 ───────────────────────────────
             with st.expander("피처 전체 값 및 SHAP 기여도", expanded=False):
                 feat_df = pd.DataFrame({
@@ -715,40 +748,4 @@ with tab2:
 | **CCB** | SBP #1 (eGFR 無) | 혈관 이완. 신장 기능 무관 | ✅ |
 
 > **5개 약물 클래스 모두 임상 가이드라인과 일치**
-""")
-
-
-# ── Tab 3: Groq 설정 ─────────────────────────────────────
-with tab3:
-    st.markdown("## Groq API 설정")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("""
-### API 키 발급 순서
-1. [https://console.groq.com](https://console.groq.com) 접속 후 가입
-2. **API Keys** 메뉴 → **Create API Key**
-3. 발급된 키를 복사
-
-### Streamlit Cloud 배포 시
-- 앱 설정 → **Secrets** 메뉴에서 아래 추가:
-```toml
-GROQ_API_KEY = "gsk_여기에키입력"
-```
-""")
-    with c2:
-        st.markdown("""
-### 사용 중인 모델
-```python
-llama-3.3-70b-versatile   # 현재 사용 (무료, 고성능)
-```
-
-### 다른 모델로 변경하려면
-`app.py` 상단 `GROQ_MODEL` 변수를 수정:
-```python
-GROQ_MODEL = "llama-3.1-8b-instant"   # 더 빠름
-GROQ_MODEL = "gemma2-9b-it"           # Google Gemma
-GROQ_MODEL = "mixtral-8x7b-32768"     # Mixtral
-```
-
-> Groq API 키 없이도 약물 예측 + SHAP 차트는 정상 동작합니다.
 """)
