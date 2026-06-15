@@ -224,7 +224,7 @@ FEATURE_REASON = {
 
 DRUG_INFO = {
     "ACE": {
-        "ko":"ACE 억제제", "color":"#2563eb", "bg":"#eff6ff", "border":"#bfdbfe",
+        "ko":"ACE 억제제 (안지오텐신전환효소 억제제)", "color":"#2563eb", "bg":"#eff6ff", "border":"#bfdbfe",
         "guide":"ADA 2023 · KDIGO 2022",
         "mechanism":"안지오텐신 전환효소(ACE) 차단 → 사구체 내압 감소 → 신장 보호",
         "simple":"혈압을 높이는 효소(ACE)를 직접 차단해 혈관을 이완시킵니다. "
@@ -238,7 +238,7 @@ DRUG_INFO = {
                  "ACE 억제제와 효과가 비슷하지만 마른기침 부작용이 없습니다.",
     },
     "BETA": {
-        "ko":"베타차단제", "color":"#7c3aed", "bg":"#f5f3ff", "border":"#ddd6fe",
+        "ko":"베타차단제 (Beta-blocker)", "color":"#7c3aed", "bg":"#f5f3ff", "border":"#ddd6fe",
         "guide":"ACC/AHA 2017",
         "mechanism":"β1 수용체 차단 → 심박수·심박출량 감소 → 혈압 강하",
         "simple":"심장을 빠르게 뛰게 하는 신호를 차단해 심장이 천천히 뛰도록 만들어 혈압을 낮춥니다. "
@@ -461,7 +461,7 @@ def build_fallback(fv, pred_cls, proba_val):
 # ══════════════════════════════════════════════════════════
 def make_prob_chart(proba, classes):
     colors = [DRUG_INFO[c]["color"] for c in classes]
-    labels = [f"{c}  ({DRUG_INFO[c]['ko']})" for c in classes]
+    labels = [DRUG_INFO[c]["ko"] for c in classes]
     vals   = proba * 100
 
     fig, ax = plt.subplots(figsize=(10, 3.6))
@@ -474,8 +474,8 @@ def make_prob_chart(proba, classes):
                 f"{v:.1f}%", va="center", fontsize=12, fontweight="bold", color="#1e293b")
 
     ax.set_xlim(0, 115)
-    ax.set_xlabel("예측 확률 (%)", fontsize=11, color="#64748b")
-    ax.set_title("약물 클래스별 예측 확률", fontsize=13, fontweight="bold", color="#1e293b", pad=14)
+    ax.set_xlabel("추천 적합도 (%)", fontsize=11, color="#64748b")
+    ax.set_title("약물별 추천 적합도", fontsize=13, fontweight="bold", color="#1e293b", pad=14)
     ax.tick_params(colors="#475569", labelsize=11)
     ax.spines[["top","right"]].set_visible(False)
     ax.spines[["left","bottom"]].set_color("#e2e8f0")
@@ -503,17 +503,17 @@ def make_shap_chart(sv, pred_cls):
                 fontsize=9.5, color="#1e293b", fontweight="600")
 
     ax.axvline(0, color="#475569", linewidth=1.0)
-    ax.set_title(f"SHAP 피처 기여도 — {pred_cls} ({DRUG_INFO[pred_cls]['ko']})",
+    ax.set_title(f"처방 판단에 영향을 준 요인 — {DRUG_INFO[pred_cls]['ko']}",
                  fontsize=13, fontweight="bold", color="#1e293b", pad=14)
-    ax.set_xlabel("SHAP value  (양수 = 예측 강화,  음수 = 예측 억제)", fontsize=10, color="#64748b")
+    ax.set_xlabel("영향도  (양수 = 추천 강화,  음수 = 추천 억제)", fontsize=10, color="#64748b")
     ax.tick_params(colors="#475569", labelsize=10)
     ax.spines[["top","right"]].set_visible(False)
     ax.spines[["left","bottom"]].set_color("#e2e8f0")
     ax.set_axisbelow(True)
     ax.xaxis.grid(True, color="#e2e8f0", linewidth=0.8)
     ax.legend(handles=[
-        mpatches.Patch(color=color_pos, label="예측 강화", alpha=0.85),
-        mpatches.Patch(color=color_neg, label="예측 억제", alpha=0.85),
+        mpatches.Patch(color=color_pos, label="추천 강화", alpha=0.85),
+        mpatches.Patch(color=color_neg, label="추천 억제", alpha=0.85),
     ], fontsize=10, loc="lower right", framealpha=0.9, edgecolor="#e2e8f0")
     plt.tight_layout(pad=1.6)
     return fig
@@ -554,7 +554,7 @@ def build_evidence(cls, fv, sv):
     }
     # "제목" 다음 줄에 "내용"이 오도록, 제목 끝에 공백 2개(마크다운 강제 줄바꿈) + 줄바꿈 추가
     lines = [
-        f"#### {cls} — {info['ko']}",
+        f"#### {info['ko']}",
         "",
         "**작용기전**  ",
         info["mechanism"],
@@ -571,8 +571,8 @@ def build_evidence(cls, fv, sv):
     ]
     for feat, val, desc in ev_map.get(cls, []):
         shap_v = sv[FEATURES.index(feat)]
-        d = "▲ 예측 강화" if shap_v>0 else "▼ 예측 억제"
-        lines.append(f"- **{FEATURE_KR[feat]}** (값={val:.2f}, SHAP={shap_v:+.4f} → {d})")
+        d = "▲ 추천 강화 요인" if shap_v>0 else "▼ 추천 억제 요인"
+        lines.append(f"- **{FEATURE_KR[feat]}** (값={val:.2f}, 영향도={shap_v:+.4f} → {d})")
         lines.append(f"  → {desc}")
     return "\n".join(lines)
 
@@ -583,12 +583,12 @@ def build_evidence(cls, fv, sv):
 st.markdown("""
 <div class="hero">
   <h1>💊 고혈압 1차 약물 추천 시스템</h1>
-  <p>Hypertension Drug Prediction · XGBoost + SHAP + Ollama LLM</p>
+  <p>처방 전, AI 분석으로 1차 약물 선택의 근거를 확인하세요</p>
   <div class="badges">
-    <span class="badge">📊 NHANES 2005–2018 · 5,974명</span>
-    <span class="badge">🤖 XGBoost + SMOTE</span>
-    <span class="badge">🔍 SHAP 임상 해석</span>
-    <span class="badge">🦙 Groq llama-3.3-70b</span>
+    <span class="badge">📊 국가 건강조사 데이터 5,974명 기반</span>
+    <span class="badge">🤖 AI 학습 기반 분석</span>
+    <span class="badge">🔍 AI 처방 판단 근거 분석</span>
+    <span class="badge">💬 AI 임상 설명 제공</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -600,7 +600,7 @@ if not MODEL_OK:
 # ══════════════════════════════════════════════════════════
 #  탭
 # ══════════════════════════════════════════════════════════
-tab1, tab2, tab3 = st.tabs(["🔍  약물 예측", "📊  분석 배경 및 SHAP 패턴", "💬  약물 물어보기"])
+tab1, tab2, tab3 = st.tabs(["💊  약물 추천", "📊  분석 배경 및 판단 근거", "💬  약물 물어보기"])
 
 with tab1:
     left, right = st.columns([1, 2], gap="large")
@@ -667,11 +667,11 @@ with tab1:
             st.markdown(f"""
 <div class="drug-card" style="background:{info['bg']};border-color:{info['color']};">
   <div style="font-size:20px;font-weight:800;color:{info['color']};margin-bottom:6px;">
-    🏆 추천 약물: {pred_cls} &nbsp;({info['ko']})
+    🏆 추천 약물: {info['ko']}
   </div>
   <div style="font-size:32px;font-weight:900;color:#1e293b;margin-bottom:12px;">
     {proba_v*100:.1f}%
-    <span style="font-size:14px;font-weight:400;color:#64748b;"> 예측 확률 (5개 약물 중 가장 높음)</span>
+    <span style="font-size:14px;font-weight:400;color:#64748b;"> 추천 적합도 (5가지 약물 중 가장 높음)</span>
   </div>
   <hr style="border-color:{info['border']};margin:10px 0;">
   <table style="font-size:13.5px;width:100%;border-spacing:0;">
@@ -702,30 +702,30 @@ with tab1:
 </div>
 """, unsafe_allow_html=True)
 
-            # ── 예측 확률 차트 ────────────────────────────
-            st.markdown("#### 📊 예측 확률")
+            # ── 추천 적합도 차트 ───────────────────────────
+            st.markdown("#### 📊 약물별 추천 적합도")
             st.pyplot(make_prob_chart(proba, le.classes_), use_container_width=True)
 
-            # ── SHAP 차트 ────────────────────────────────
-            st.markdown("#### 🔍 SHAP 피처 기여도")
+            # ── 판단 근거 차트 ────────────────────────────
+            st.markdown("#### 🔍 처방 판단에 영향을 준 요인")
             st.pyplot(make_shap_chart(sv, pred_cls), use_container_width=True)
 
             # ── AI 임상 설명 ─────────────────────────────
-            st.markdown("#### 🤖 AI 임상 설명 (Groq — llama-3.3-70b)")
-            with st.spinner("Groq AI 응답 대기 중..."):
+            st.markdown("#### 🤖 AI 임상 설명")
+            with st.spinner("AI 설명 생성 중..."):
                 ai = call_groq(fv, pred_cls, proba_v)
 
             if ai:
                 st.info(ai)
             else:
-                st.warning("**[Groq 미응답 — 규칙 기반 요약]**\n\n" + build_fallback(fv, pred_cls, proba_v))
+                st.warning("**[AI 설명을 가져오지 못해 기본 요약으로 대체합니다]**\n\n" + build_fallback(fv, pred_cls, proba_v))
 
             # ── 임상 근거 요약 ────────────────────────────
-            with st.expander("📋 임상 근거 요약 (SHAP + 가이드라인)", expanded=False):
+            with st.expander("📋 임상 근거 요약 (판단 근거 + 가이드라인)", expanded=False):
                 st.markdown(build_evidence(pred_cls, fv, sv))
 
                 st.markdown("---")
-                st.markdown("**AI가 가장 중요하게 본 항목 Top 3**")
+                st.markdown("**처방 판단에 가장 큰 영향을 준 요인 3가지**")
 
                 top3_idx = np.argsort(np.abs(sv))[::-1][:3]
                 max_abs  = float(max(abs(sv[i]) for i in top3_idx)) or 1.0
@@ -742,12 +742,12 @@ with tab1:
                     st.caption(reason)
 
             # ── 피처 테이블 ───────────────────────────────
-            with st.expander("피처 전체 값 및 SHAP 기여도", expanded=False):
+            with st.expander("피처 전체 값 및 판단 영향도", expanded=False):
                 feat_df = pd.DataFrame({
                     "피처":  [FEATURE_KR[f] for f in FEATURES],
                     "값":    [round(float(v), 3) for v in fv],
-                    "SHAP": [round(float(v), 4) for v in sv],
-                }).sort_values("SHAP", key=abs, ascending=False).reset_index(drop=True)
+                    "영향도": [round(float(v), 4) for v in sv],
+                }).sort_values("영향도", key=abs, ascending=False).reset_index(drop=True)
                 st.dataframe(feat_df, use_container_width=True, hide_index=True)
         else:
             st.markdown("""
@@ -758,7 +758,7 @@ with tab1:
     환자 정보를 입력하고 약물 추천 실행을 눌러주세요
   </div>
   <div style="font-size:13px;">
-    XGBoost 모델이 5개 약물 클래스 중 최적 약물을 예측합니다
+    AI가 5가지 혈압약 중 환자에게 가장 적합한 약물을 분석해드립니다
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -770,10 +770,10 @@ with tab2:
 
     # ── 핵심 지표 카드 ────────────────────────────────────
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("학습 데이터", "5,974명", "NHANES 2005–2018", delta_color="off")
-    m2.metric("모델 정확도", "31.2%", "5개 약물 중 분류", delta_color="off")
-    m3.metric("분석 피처", "14개", "혈압·신장·전해질 등", delta_color="off")
-    m4.metric("AI 설명", "Groq", "llama-3.3-70b", delta_color="off")
+    m1.metric("학습 데이터", "5,974명", "국가 건강조사 데이터", delta_color="off")
+    m2.metric("모델 정확도", "31.2%", "5가지 약물 중 분류", delta_color="off")
+    m3.metric("분석 항목", "14개", "혈압·신장·전해질 등", delta_color="off")
+    m4.metric("AI 해설", "자동 생성", "환자별 맞춤 설명", delta_color="off")
 
     st.markdown("---")
 
@@ -834,7 +834,7 @@ with tab2:
 """, unsafe_allow_html=True)
 
     st.markdown("")
-    st.success("**5개 약물 클래스 모두 AI의 판단 기준이 실제 의학 가이드라인과 일치합니다.**")
+    st.success("**5가지 약물 모두 AI의 판단 기준이 실제 의학 가이드라인과 일치합니다.**")
 
     # ── 더 자세한 내용 (선택적) ───────────────────────────
     with st.expander("🔧 모델 구조 자세히 보기 (개발자용)", expanded=False):
@@ -900,4 +900,4 @@ with tab3:
             if answer:
                 st.info(answer)
             else:
-                st.warning("Groq API 응답을 받지 못했습니다. API 키 설정을 확인해주세요.")
+                st.warning("지금은 AI 답변을 가져올 수 없습니다. 잠시 후 다시 시도해주세요.")
