@@ -232,8 +232,8 @@ DRUG_INFO = {
     },
 }
 HTN_LABELS = {1:"정상 (120/80 미만)", 2:"주의 (120-129)", 3:"고혈압 1기 (130-139)", 4:"고혈압 2기 (140 이상)"}
-OLLAMA_URL   = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3.2"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
 
 
 # ══════════════════════════════════════════════════════════
@@ -288,7 +288,10 @@ def sanitize_text(text):
     text = re.sub(r'[֐-׿]', '', text)
     return text.strip()
 
-def call_ollama(fv, pred_cls, proba_val):
+def call_groq(fv, pred_cls, proba_val):
+    api_key = st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY", ""))
+    if not api_key:
+        return None
     info = DRUG_INFO[pred_cls]
     prompt = (
         f"당신은 고혈압 전문 임상약사입니다. 한국어로만 3문장 작성하세요. "
@@ -302,12 +305,17 @@ def call_ollama(fv, pred_cls, proba_val):
     )
     try:
         resp = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
-            timeout=120,
+            GROQ_URL,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": GROQ_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 512,
+            },
+            timeout=30,
         )
         if resp.status_code == 200:
-            return sanitize_text(resp.json().get("response", "").strip())
+            return sanitize_text(resp.json()["choices"][0]["message"]["content"].strip())
         return None
     except Exception:
         return None
@@ -460,7 +468,7 @@ st.markdown("""
     <span class="badge">📊 NHANES 2005–2018 · 5,974명</span>
     <span class="badge">🤖 XGBoost + SMOTE</span>
     <span class="badge">🔍 SHAP 임상 해석</span>
-    <span class="badge">🦙 Ollama llama3.2</span>
+    <span class="badge">🦙 Groq llama-3.3-70b</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -472,7 +480,7 @@ if not MODEL_OK:
 # ══════════════════════════════════════════════════════════
 #  탭
 # ══════════════════════════════════════════════════════════
-tab1, tab2, tab3 = st.tabs(["🔍  약물 예측", "📊  분석 배경 및 SHAP 패턴", "⚙️  Ollama 설정"])
+tab1, tab2, tab3 = st.tabs(["🔍  약물 예측", "📊  분석 배경 및 SHAP 패턴", "⚙️  Groq 설정"])
 
 with tab1:
     left, right = st.columns([1, 2], gap="large")
@@ -580,14 +588,14 @@ with tab1:
             st.pyplot(make_shap_chart(sv, pred_cls), use_container_width=True)
 
             # ── AI 임상 설명 ─────────────────────────────
-            st.markdown("#### 🤖 AI 임상 설명 (Ollama — llama3.2)")
-            with st.spinner("Ollama 응답 대기 중..."):
-                ai = call_ollama(fv, pred_cls, proba_v)
+            st.markdown("#### 🤖 AI 임상 설명 (Groq — llama-3.3-70b)")
+            with st.spinner("Groq AI 응답 대기 중..."):
+                ai = call_groq(fv, pred_cls, proba_v)
 
             if ai:
                 st.info(ai)
             else:
-                st.warning("**[Ollama 미응답 — 규칙 기반 요약]**\n\n" + build_fallback(fv, pred_cls, proba_v))
+                st.warning("**[Groq 미응답 — 규칙 기반 요약]**\n\n" + build_fallback(fv, pred_cls, proba_v))
 
             # ── 임상 근거 요약 ────────────────────────────
             with st.expander("📋 임상 근거 요약 (SHAP + 가이드라인)", expanded=False):
@@ -629,7 +637,7 @@ with tab2:
 | 알고리즘 | XGBoost + SMOTE |
 | 성능 | Accuracy 31.2%, F1-macro 27.0% |
 | 해석 | SHAP TreeExplainer |
-| LLM | Ollama llama3.2 (로컬) |
+| LLM | Groq llama-3.3-70b (API) |
 """)
     with col2:
         st.markdown("""
@@ -657,33 +665,37 @@ with tab2:
 """)
 
 
-# ── Tab 3: Ollama 설정 ────────────────────────────────────
+# ── Tab 3: Groq 설정 ─────────────────────────────────────
 with tab3:
-    st.markdown("## Ollama 설치 및 실행")
+    st.markdown("## Groq API 설정")
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("""
-### 설치 순서
-1. [https://ollama.com](https://ollama.com) → Download for Windows
-2. 터미널에서 모델 다운로드:
-```bash
-ollama pull llama3.2
-```
-3. 서버 실행:
-```bash
-ollama serve
+### API 키 발급 순서
+1. [https://console.groq.com](https://console.groq.com) 접속 후 가입
+2. **API Keys** 메뉴 → **Create API Key**
+3. 발급된 키를 복사
+
+### Streamlit Cloud 배포 시
+- 앱 설정 → **Secrets** 메뉴에서 아래 추가:
+```toml
+GROQ_API_KEY = "gsk_여기에키입력"
 ```
 """)
     with c2:
         st.markdown("""
-### 사용 가능한 모델
+### 사용 중인 모델
 ```python
-llama3.2        # 기본값 (~2GB)
-llama3.2:1b     # 경량 버전 (~1.3GB)
-phi3:mini       # Microsoft (~2.3GB)
-qwen2.5:3b      # Alibaba (~2GB)
+llama-3.3-70b-versatile   # 현재 사용 (무료, 고성능)
 ```
-> `app.py` 상단 `OLLAMA_MODEL` 변수를 변경하세요.
 
-Ollama 없이도 약물 예측 + SHAP 차트는 정상 동작합니다.
+### 다른 모델로 변경하려면
+`app.py` 상단 `GROQ_MODEL` 변수를 수정:
+```python
+GROQ_MODEL = "llama-3.1-8b-instant"   # 더 빠름
+GROQ_MODEL = "gemma2-9b-it"           # Google Gemma
+GROQ_MODEL = "mixtral-8x7b-32768"     # Mixtral
+```
+
+> Groq API 키 없이도 약물 예측 + SHAP 차트는 정상 동작합니다.
 """)
