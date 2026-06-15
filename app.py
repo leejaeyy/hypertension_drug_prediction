@@ -677,16 +677,17 @@ with tab1:
                 st.markdown("**AI가 가장 중요하게 본 항목 Top 3**")
 
                 top3_idx = np.argsort(np.abs(sv))[::-1][:3]
-                max_abs  = max(abs(sv[i]) for i in top3_idx) or 1.0
+                max_abs  = float(max(abs(sv[i]) for i in top3_idx)) or 1.0
 
                 for rank, i in enumerate(top3_idx, 1):
                     feat = FEATURES[i]
                     icon = FEATURE_ICON.get(feat, "🔹")
                     reason = FEATURE_REASON.get(feat, "")
-                    rel = abs(sv[i]) / max_abs
+                    rel = float(abs(sv[i])) / max_abs
+                    rel = min(max(rel, 0.0), 1.0)
 
                     st.markdown(f"**{rank}위. {icon} {FEATURE_KR[feat]}**")
-                    st.progress(min(max(rel, 0.0), 1.0))
+                    st.progress(rel)
                     st.caption(reason)
 
             # ── 피처 테이블 ───────────────────────────────
