@@ -386,6 +386,57 @@ def call_groq(fv, pred_cls, proba_val):
         return None
 
 
+def call_groq_qa(question):
+    """'약물 물어보기' 탭 - 자유 질문에 대한 답변 생성"""
+    api_key = st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY", ""))
+    if not api_key:
+        return None
+
+    system_prompt = (
+        "당신은 고혈압 관리를 돕는 친절한 임상약사입니다. "
+        "사용자의 질문에 대해 한국어(한글)로만, 4~6문장 이내로 쉽고 간결하게 답변하세요. "
+        "의학 전문용어의 영어 표기(예: ARB, ACE, eGFR, mmHg, mL/min)는 허용하지만, "
+        "한국어 단어 안에 베트남어, 중국어, 일본어, 태국어 등 다른 언어의 문자나 "
+        "발음 구별 기호가 섞여서는 절대 안 됩니다. "
+        "고혈압, 혈압약, 식습관·생활습관 관리와 관련 없는 질문에는 "
+        "정중하게 답변할 수 없다고 안내하세요. "
+        "답변 마지막에는 '정확한 진단과 처방은 의사·약사와 상담하세요.'라는 문장을 포함하세요."
+    )
+
+    def _request(temperature):
+        resp = requests.post(
+            GROQ_URL,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": GROQ_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question},
+                ],
+                "temperature": temperature,
+                "max_tokens": 512,
+            },
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            return resp.json()["choices"][0]["message"]["content"].strip()
+        return None
+
+    try:
+        raw = _request(0.4)
+        if raw is None:
+            return None
+
+        if has_foreign_chars(raw):
+            retry = _request(0.3)
+            if retry is not None and not has_foreign_chars(retry):
+                raw = retry
+
+        return sanitize_text(raw)
+    except Exception:
+        return None
+
+
 def build_fallback(fv, pred_cls, proba_val):
     info = DRUG_INFO[pred_cls]
     egfr_desc = (f"eGFR {fv[8]:.1f} mL/min으로 신장 기능이 저하되어 있으며"
@@ -549,7 +600,7 @@ if not MODEL_OK:
 # ══════════════════════════════════════════════════════════
 #  탭
 # ══════════════════════════════════════════════════════════
-tab1, tab2 = st.tabs(["🔍  약물 예측", "📊  분석 배경 및 SHAP 패턴"])
+tab1, tab2, tab3 = st.tabs(["🔍  약물 예측", "📊  분석 배경 및 SHAP 패턴", "💬  약물 물어보기"])
 
 with tab1:
     left, right = st.columns([1, 2], gap="large")
@@ -809,3 +860,44 @@ with tab2:
 | hyperkalemia_flag | K+ ≥ 5.5 | ACE/ARB 금기 |
 | htn_stage | ACC/AHA 2017 | 1~4단계 |
 """)
+
+
+# ── Tab 3: 약물 물어보기 ─────────────────────────────────
+with tab3:
+    st.markdown("## 💬 약물 물어보기")
+    st.caption("혈압·약물·생활습관 관련 질문을 자유롭게 입력해보세요. (의학적 진단을 대체하지 않습니다)")
+
+    if "qa_question" not in st.session_state:
+        st.session_state["qa_question"] = ""
+
+    st.markdown("**예시 질문**")
+    examples = [
+        "공복혈당이 높은데 어떻게 조절해야 하나요?",
+        "ARB와 ACE 억제제는 뭐가 다른가요?",
+        "이뇨제를 먹으면 칼륨이 왜 떨어지나요?",
+    ]
+    ex_cols = st.columns(3)
+    for col, ex in zip(ex_cols, examples):
+        if col.button(ex, use_container_width=True):
+            st.session_state["qa_question"] = ex
+
+    question = st.text_area(
+        "질문을 입력하세요",
+        key="qa_question",
+        height=100,
+        placeholder="예: 공복혈당 수치가 높은데 어떻게 조절해야 하나요?",
+    )
+
+    ask = st.button("🔍  질문하기", use_container_width=True)
+
+    if ask:
+        if not question.strip():
+            st.warning("질문을 입력해주세요.")
+        else:
+            with st.spinner("AI가 답변을 작성 중..."):
+                answer = call_groq_qa(question.strip())
+            st.markdown("#### 🤖 AI 답변")
+            if answer:
+                st.info(answer)
+            else:
+                st.warning("Groq API 응답을 받지 못했습니다. API 키 설정을 확인해주세요.")
